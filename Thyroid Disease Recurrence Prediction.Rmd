@@ -1,0 +1,1595 @@
+---
+title: "Thyroid Disease Recurrence Prediction"
+author: "Luka"
+date: "2024-07-15"
+output: html_notebook
+---
+
+### Introduction
+
+In this analysis, I will be working with a dataset containing detailed information about patients with thyroid conditions. My goal is to predict whether the disease will recur based on various patient attributes. Predicting the recurrence of thyroid disease can help in better managing patient care and designing personalized treatment plans.
+
+The dataset includes the following columns:
+
+1.  **Age**: The age of the patient.
+2.  **Gender**: The gender of the patient.
+3.  **Smoking**: Indicates whether the patient is a current smoker.
+4.  **Hx.Smoking**: Indicates if the patient has a history of smoking.
+5.  **Hx.Radiotherapy**: Indicates if the patient has undergone radiotherapy.
+6.  **Thyroid Function**: The functional state of the thyroid.
+7.  **Physical Examination**: Results of the physical examination of the thyroid.
+8.  **Adenopathy**: Indicates the presence of adenopathy.
+9.  **Pathology**: Pathological findings.
+10. **Focality**: Describes whether the condition is uni-focal or multi-focal.
+11. **Risk**: The risk level associated with the patient's condition.
+12. **T**: Tumor classification (part of the TNM staging).
+13. **N**: Lymph node involvement (part of the TNM staging).
+14. **M**: Metastasis (part of the TNM staging).
+15. **Stage**: The stage of the disease.
+16. **Response**: Response to treatment.
+17. **Recurred**: Indicates whether the disease has recurred.
+
+By exploring and analyzing these features, I aim to build a predictive model that can accurately determine the likelihood of disease recurrence. This notebook will guide you through the data preprocessing, exploratory data analysis, model building, and evaluation steps to achieve this goal.
+
+### Loading and ispecting data
+
+First of all, i will load our data in a new variable.
+
+```{r}
+library(tidyverse)
+data <- read.csv("Thyroid_Diff.csv")
+head(data)
+```
+
+Let's see summary of our data.
+
+```{r}
+summary(data)
+```
+
+As we can see, there is no null values, so i will check out if there are irrelevant values or empty strings.
+
+```{r}
+unique(data$Gender)
+```
+
+```{r}
+unique(data$Smoking)
+```
+
+```{r}
+unique(data$Hx.Smoking)
+```
+
+```{r}
+unique(data$Hx.Radiothreapy)
+```
+
+```{r}
+unique(data$Thyroid.Function)
+```
+
+```{r}
+unique(data$Physical.Examination)
+```
+
+```{r}
+unique(data$Adenopathy)
+```
+
+```{r}
+unique(data$Pathology)
+```
+
+```{r}
+unique(data$Focality)
+```
+
+```{r}
+unique(data$Risk)
+```
+
+```{r}
+unique(data$T)
+```
+
+```{r}
+unique(data$N)
+```
+
+```{r}
+unique(data$M)
+```
+
+```{r}
+unique(data$Stage)
+```
+
+```{r}
+unique(data$Response)
+```
+
+```{r}
+unique(data$Recurred)
+```
+
+There is no irrelevant values in our data, and that means we can move forward and see what to do with our variables.
+
+### Data Preprocessing
+
+As we have determined that there are no missing or irrelevant values, we can proceed to factorize the categorical variables.
+
+```{r}
+data$Gender <- factor(data$Gender)
+data$Smoking <- factor(data$Smoking)
+data$Hx.Smoking <- factor(data$Hx.Smoking)
+data$Hx.Radiothreapy <- factor(data$Hx.Radiothreapy)
+data$Thyroid.Function <- factor(data$Thyroid.Function)
+data$Physical.Examination <- factor(data$Physical.Examination)
+data$Adenopathy <- factor(data$Adenopathy)
+data$Pathology <- factor(data$Pathology)
+data$Focality <- factor(data$Focality)
+data$Risk <- factor(data$Risk)
+data$T <- factor(data$T)
+data$M <- factor(data$M)
+data$N <- factor(data$N)
+data$Stage <- factor(data$Stage)
+data$Response <- factor(data$Response)
+data$Recurred <- factor(data$Recurred)
+```
+
+Our data now looks like:
+
+```{r}
+summary(data)
+```
+
+### Exploratory Data Analasys (EDA)
+
+At the beggining, let's see distribution of our target value:
+
+```{r}
+data_summary <- data %>%
+  group_by(Recurred) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Recurred)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Recurrence Distribution",  
+    fill = "Recurred"  
+  ) +
+  theme_void() +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),  
+            position = position_stack(vjust = 0.5))
+```
+
+From the graph we can see that there are more patients who haven't experienced disease recurrence, than patients who have. We will now go deeply in analyzing our data set. \#### Age
+
+Let's see age distribution in our data:
+
+```{r}
+ggplot(data, aes(x = Age)) +
+  geom_histogram(binwidth = 5, fill = "green", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Age",
+       x = "Age",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+The graph shows that age distribution is not normal and that there is a higher concentration of people aged 20 to 40 compared to those aged 60 to 80. Let's make new variable which represents age intervals:
+
+```{r}
+data$Age_Interval <- ifelse(data$Age < 30, "Young", ifelse(data$Age <= 60, "Mid", "Old"))
+data$Age_Interval <- factor(data$Age_Interval)
+summary(data)
+```
+
+Let's now see how age affect our target variable:
+
+```{r}
+ggplot(data, aes(x = Age_Interval, fill = Recurred)) +
+  geom_bar(position = "fill", color = "black", alpha = 0.7) +
+  labs(x = "Age Interval", y = "Percentage") +  
+  ggtitle("Age Interval and Recurrence Percentage") +  
+  scale_fill_discrete(name = "Recurrence")
+```
+
+As we can see, approximately 60% of older adults experienced disease recurrence. For middle-aged individuals, this figure is around 25%, and for younger people, it's below 25%. It's expected, as younger people generally have stronger immune systems and are more active.
+
+#### Gender
+
+Let's see gender distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Gender) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Gender)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Gender Distribution",  
+    fill = "Gender"  
+  ) +
+  theme_void() +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),  
+            position = position_stack(vjust = 0.5))  
+
+```
+
+In our dataset, we have more female individuals, which is logical because thyroid gland issues predominantly occur in women. Let's see graph with combination with Gender, Age and Recurred:
+
+```{r}
+ggplot(data, aes(x = Age_Interval, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +  
+  facet_wrap(~Gender) + 
+  labs(
+    title = "Age, Gender, and Recurrence Relationship",  
+    x = "Age",  
+    y = "Count",  
+    fill = "Recurred"  
+  ) +
+  theme_minimal()  
+```
+
+As we can see from the graph, the male population has more issues with this disease, and it recurs more frequently in them. Let's calculate the percentage of disease recurrence for each age group and gender.
+
+```{r}
+recurrence_summary <- data %>%
+  group_by(Age_Interval, Gender) %>%
+  summarise(
+    Count_Recurred = sum(Recurred == "Yes"),
+    Total_Count = n()  
+  ) %>%
+  mutate(
+    Percentage_Recurred = (Count_Recurred / Total_Count) * 100
+  )
+recurrence_summary
+```
+
+It is true that we have fewer men, as I mentioned. Men less frequently suffer from this disease, but these percentages are quite important to us. We can conclude that older men have the highest percentage of disease recurrence.
+
+#### Smoking
+
+Let's see smoking distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Smoking) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Smoking)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Smoking Distribution",  
+    fill = "Smoking"  
+  ) +
+  theme_void() +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),  
+            position = position_stack(vjust = 0.5)) 
+```
+
+In our dataset, we have more non-smokers than smokers. Let's see which age groups belong to smokers and non-smokers.
+
+```{r}
+ggplot(data, aes(x = Age_Interval, fill = Smoking)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Age and Smoking",  
+    x = "Age",  
+    y = "Count",  
+    fill = "Smoking"  
+  ) +
+  theme_minimal()
+```
+
+Let's divide this on gender.
+
+```{r}
+ggplot(data, aes(x = Age_Interval, fill = Smoking)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  facet_wrap(~Gender) +
+  labs(
+    title = "Age and Smoking",  
+    x = "Age",  
+    y = "Count",  
+    fill = "Smoking"  
+  ) +
+  theme_minimal()
+```
+
+As we can see, smokers are predominantly male. Let's calculate the percentage of male smokers and female smokers.
+
+```{r}
+male_smokers <- length(which(data$Gender == "M" & data$Smoking == "Yes"))/length(which(data$Gender == "M"))
+female_smokers <- length(which(data$Gender == "F" & data$Smoking == "Yes"))/length(which(data$Gender == "F"))
+cat("Proportion of male smokers:", male_smokers*100, "%\n")
+cat("Proportion of female smokers:", female_smokers*100, "%\n")
+```
+
+This is a significant difference and can definitely influence the outcome. We have established that the disease recurs more frequently in men; let's check if it's related to smoking.
+
+```{r}
+ggplot(filter(data, data$Gender == "M"), aes(x = Smoking, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Smoking and Recurrence - Male population",  
+    x = "Smoking",  
+    y = "Count",  
+    fill = "Recurred"  
+  ) +
+  theme_minimal()
+```
+
+As we can see, smoking affects our outcome, because from the graph we see that men who smoke have a greater chance of disease recurrence.
+
+#### Hx.Smoking
+
+Let's see smoking history distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Hx.Smoking) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Hx.Smoking)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Smoking History Distribution",  
+    fill = "Smoking History"  
+  ) +
+  theme_void() +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),  
+            position = position_stack(vjust = 0.5)) 
+```
+
+As we can see there is less people who used to smoke in the past. Let's see relation between smokers and people who used to smoke.
+
+```{r}
+ggplot(data, aes(x = Smoking, fill = Hx.Smoking)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Smoking - Smoking History",  
+    x = "Smoking",  
+    y = "Count",  
+    fill = "Smoking History"  
+  ) +
+  theme_minimal()
+```
+
+As we can see, there is percentage less people who used to smoke before than people who are smoking constantly. Let's make a new variable which will contain these categories:
+
+-   **Past Smoker** (Smoking History: Yes, Smoking Now: No)
+
+-   **Present Smoker** (Smoking History: No, Smoking Now: Yes)
+
+-   **Constantly Smoker** (Smoking History: Yes, Smoking Now: Yes)
+
+-   **Non Smoker** (Smoking History: No, Smoking Now: No)
+
+```{r}
+data$Smokers_Category <- ifelse(
+  data$Hx.Smoking == "Yes", ifelse(data$Smoking == "Yes", "Constantly Smoker", "Past Smoker"), ifelse(data$Smoking == "Yes", "Present Smoker", "Non Smoker")
+)
+data$Smokers_Category <- factor(data$Smokers_Category)
+summary(data)
+```
+
+Let's now see how our new variable affect our outcome:
+
+```{r}
+ggplot(data, aes(x = Smokers_Category, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Smokers Category - Recurrence",  
+    x = "Smoking Category",  
+    y = "Count",  
+    fill = "Recurrence"  
+  ) +
+  theme_minimal()
+```
+
+Graph shows us that non smokers and past smokers have less chance of disease recurrence than present smokers and constantly smokers. Let's see relation between age and smokers category:
+
+```{r}
+ggplot(data, aes(x = Age_Interval, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  facet_wrap(~Smokers_Category, scales = "free_y") +
+  labs(
+    title = "Age Interval - Recurrence",  
+    x = "Age Interval",  
+    y = "Count",  
+    fill = "Recurrence"  
+  ) +
+  theme_minimal()
+```
+
+We have a small sample size when grouping people by age and smoker category. Nonetheless, by creating a new column for smoker category, we combined two columns, which may have positively influenced our final model.
+
+#### Hx.Radiotherapy
+
+Let's see radiotherapy history distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Hx.Radiothreapy) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Hx.Radiothreapy)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Radiotherapy History distribution",  
+    fill = "Radiotherapy History"  
+  ) +
+  theme_void() +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),  
+            position = position_stack(vjust = 0.5)) 
+```
+
+From the graph we can see that very low percetage od people have radiotherapy history, let's see who are this people.
+
+```{r}
+radio_therapy_history <- filter(data, data$Hx.Radiothreapy == "Yes")
+summary(radio_therapy_history)
+```
+
+```{r}
+radio_therapy_history
+```
+
+This table show us one row which is different from the others. This female patient didn't have disease recurrence. Why is that? We can see this is a young woman (25 years old). I showed in some previous explains that male population has more issues with this disease (disease is most likely to return). We can also see that this girl has low risk (which is based on tumor size, extent of spread, and histological type). Also, this girl has excellent response to treatment. But why this girl have positive radiotherapy history? Maybe this girl had tumors in another organ and had to undergo radiotherapy. As we can see, the thyroid gland tumor is uni-focal, which means it is not located in multiple places, so we can assume that the previous tumor was cured.
+
+#### Thyroid.Function
+
+Let's see thyroid function distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Thyroid.Function) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Thyroid.Function)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Thyroid Function Distribution",  
+    fill = "Thyroid Function"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$Thyroid.Function)),
+    labels = paste0(data_summary$Thyroid.Function, " (", round(data_summary$Percentage, 1), "%)")
+  ) 
+```
+
+-   **Clinical Hyperthyroidism**:
+
+    -   **Definition**: Clinical hyperthyroidism is a condition where the thyroid gland produces too much of the hormones thyroxine (T4) and triiodothyronine (T3). This can accelerate the body's metabolism, leading to various symptoms.
+
+    -   **Symptoms**: Weight loss, rapid heartbeat, sweating, tremors, nervousness, insomnia, and increased sensitivity to heat.
+
+    -   **Causes**: The most common causes include Graves' disease, toxic nodular goiter, and thyroiditis.
+
+-   **Clinical Hypothyroidism**:
+
+    -   **Definition**: Clinical hypothyroidism is a condition where the thyroid gland produces too little of the hormones thyroxine (T4) and triiodothyronine (T3). This can slow down the body's metabolism, leading to various symptoms.
+
+    -   **Symptoms**: Fatigue, weight gain, cold intolerance, depression, dry skin, constipation, and facial swelling.
+
+    -   **Causes**: The most common causes include Hashimoto's thyroiditis, treatment for hyperthyroidism, certain medications, and iodine deficiency.
+
+-   **Euthyroid**:
+
+    -   **Definition**: Euthyroid refers to a normal functioning thyroid gland, where the levels of the hormones thyroxine (T4) and triiodothyronine (T3) are within the normal range.
+
+    -   **Symptoms**: Individuals with euthyroid status do not have symptoms related to thyroid dysfunction.
+
+    -   **Clinical Significance**: Euthyroid status means that the thyroid gland is functioning normally without overproduction or underproduction of hormones.
+
+-   **Subclinical Hyperthyroidism**:
+
+    -   **Definition**: Subclinical hyperthyroidism is a condition where the levels of thyroxine (T4) and triiodothyronine (T3) are within the normal range, but the level of thyroid-stimulating hormone (TSH) is low.
+
+    -   **Symptoms**: Individuals with subclinical hyperthyroidism often do not have obvious symptoms, although some may experience mild symptoms of hyperthyroidism.
+
+    -   **Causes**: It can be caused by mild Graves' disease, toxic nodular goiter, or excessive use of thyroid hormone medication.
+
+-   **Subclinical Hypothyroidism**:
+
+    -   **Definition**: Subclinical hypothyroidism is a condition where the levels of thyroxine (T4) and triiodothyronine (T3) are within the normal range, but the level of thyroid-stimulating hormone (TSH) is elevated.
+
+    -   **Symptoms**: Individuals with subclinical hypothyroidism often do not have obvious symptoms, although some may experience mild symptoms of hypothyroidism such as fatigue and cold intolerance.
+
+    -   **Causes**: It is most commonly caused by the early stage of Hashimoto's thyroiditis or partial thyroid gland damage.
+
+Graph shows us that most people have normal thyroid function, but let's see relation with our outcome:
+
+```{r}
+thyroid_function_summary <- data %>%
+  group_by(Thyroid.Function) %>%
+  summarise(
+    Total = n(),
+    Recurred_Count = sum(Recurred == "Yes")
+  ) %>%
+  mutate(Percentage_Recurred = (Recurred_Count / Total) * 100)
+
+print(thyroid_function_summary)
+```
+
+As we can see from the graph, there is no significant correlation between thyroid function and tumor recurrence.
+
+#### Physical.Examination
+
+Let's see physical examination distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Physical.Examination) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Physical.Examination)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Physical Examination Distribution",  
+    fill = "Physical Examination"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$Physical.Examination)),
+    labels = paste0(data_summary$Physical.Examination, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+-   **Single Nodular Goiter - Left**:
+
+    -   **Definition**: This is a condition where a single nodule (lump) forms on the left side of the thyroid gland.
+
+    -   **Symptoms and Significance**: Nodules can be benign or malignant and can vary in size. They may cause visible swelling in the neck or be discovered incidentally during a physical exam or ultrasound.
+
+-   **Multinodular Goiter**:
+
+    -   **Definition**: This is a condition where multiple nodules form within the thyroid gland.
+
+    -   **Symptoms and Significance**: A multinodular goiter can cause visible swelling in the neck, breathing or swallowing difficulties, and can affect thyroid hormone production.
+
+-   **Single Nodular Goiter - Right**:
+
+    -   **Definition**: This is a condition where a single nodule (lump) forms on the right side of the thyroid gland.
+
+    -   **Symptoms and Significance**: As with nodules on the left side, they can be benign or malignant and can vary in size.
+
+-   **Normal**:
+
+    -   **Definition**: This indicates that the thyroid gland is normal, with no presence of nodules or swelling.
+
+    -   **Symptoms and Significance**: A normal thyroid gland produces appropriate amounts of hormones and has no visible or palpable abnormalities.
+
+-   **Diffuse Goiter**:
+
+    -   **Definition**: This is a condition where the entire thyroid gland is diffusely enlarged, without the presence of individual nodules.
+
+    -   **Symptoms and Significance**: A diffuse goiter can cause visible swelling in the neck and can affect thyroid function, often caused by conditions such as Graves' disease or Hashimoto's thyroiditis.
+
+We have small number of people with normal and diffuse goiter physical examination. Let's see who are this people:
+
+```{r}
+filter(data, data$Physical.Examination == "Normal")
+```
+
+From the first table, we can conclude the following:
+
+-   Individuals with a normal-sized thyroid gland are non-smokers (there is only one former smoker).
+
+-   The risk is very low.
+
+-   The response is generally good.
+
+-   However, in individuals with structurally incomplete response, recurrence has occurred.
+
+-   We can also observe that focal involvement is unifocal (with only one person having multifocal involvement).
+
+-   We can also observe that the Nodal classification is mostly N0, indicating no nodal involvement, and similarly, the Metastasis classification is mostly M0.
+
+```{r}
+filter(data, data$Physical.Examination == "Diffuse goiter")
+```
+
+From the second table, we can conclude the following:
+
+-   All individuals are non-smokers.
+
+-   The risk is low across the board.
+
+-   The response is mostly excellent (with only one intermediate).
+
+-   Focality is unifocal everywhere.
+
+-   Similar to the first table, Nodal classification is N0 throughout, indicating no nodal involvement, and Metastasis classification is M0 everywhere.
+
+Most imortant thing is that, disease recurrence is rarely. Let's see what's going on with people who have nodes:
+
+```{r}
+data_summary <- data %>%
+  filter(grepl("nodular", Physical.Examination, ignore.case = TRUE)) %>%
+  group_by(Physical.Examination, Recurred) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = Physical.Examination, y = Count, fill = Recurred)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black", alpha = 0.7) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, size = 3.5, color = "black") +
+  labs(
+    title = "Physical Examination - Recurrence",  
+    x = "Physical Examination",  
+    y = "Count",  
+    fill = "Recurrence"  
+  ) +
+  theme_minimal()
+```
+
+As we can see there is bigger chance of disease recurrence along people with nodes on thyroid. People with normal thyroid function usually have euthyroid physical examination and people with diffuse goiter have usually clinical hyperthyroidism and that's okay. Let's find out if there is any relation between nodular physical examination and thyroid function:
+
+```{r}
+data_summary <- data %>%
+  filter(grepl("nodular", Physical.Examination, ignore.case = TRUE)) %>%
+  group_by(Physical.Examination, Thyroid.Function) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+data_summary
+```
+
+From the table, we can conclude that thyroid function is not related to the physical examination, as we found that most people have a normal physical examination regardless of the presence of nodules and the size of the thyroid gland. Let's see is there any relation between gender and physical examination.
+
+```{r}
+ggplot(data, aes(x = Gender, fill = Physical.Examination)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Gender - Physical Examination",  
+    x = "Gender",  
+    y = "Count",  
+    fill = "Physical Examination"  
+  ) +
+  theme_minimal()
+```
+
+From the graph, we can see that men predominantly have nodules throughout the entire thyroid gland, while in women, nodules mostly appear on the right side. Additionally, we can observe that men do not have enlarged or normal thyroid glands, but we must also consider the number of male patients.
+
+#### Adenopathy
+
+Let's see adenopathy distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Adenopathy) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Adenopathy)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Adenopathy Distribution",  
+    fill = "Adenopathy"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$Adenopathy)),
+    labels = paste0(data_summary$Adenopathy, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+Adenopathy, also known as lymphadenopathy, refers to the enlargement or swelling of the lymph nodes. This condition can result from various causes, including infections, immune system diseases, or cancers. The lymph nodes are part of the body's immune system and help in fighting infections, so their enlargement is often a sign that the body is responding to an abnormal condition.
+
+-   **No**: Indicates no adenopathy is present.
+
+-   **Right**: Lymph nodes are enlarged on the right side of the body.
+
+-   **Extensive**: Lymph nodes are enlarged in many areas or over a large region.
+
+-   **Left**: Lymph nodes are enlarged on the left side of the body.
+
+-   **Bilateral**: Lymph nodes are enlarged on both sides of the body.
+
+-   **Posterior**: Lymph nodes are enlarged in the back or rear part of the body.
+
+Let's see relation between disease recurrence and adenopathy.
+
+```{r}
+ggplot(data, aes(x = Adenopathy, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Adenopathy - Recurred",  
+    x = "Adenopathy",  
+    y = "Count",  
+    fill = "Recurred"  
+  ) +
+  theme_minimal()
+```
+
+As we expected, people who do not have enlarged lymph nodes have a lower chance of tumor recurrence. Let's see relation between adenopathy and physical examination.
+
+```{r}
+ggplot(data, aes(x = Adenopathy, fill = Physical.Examination)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Adenopathy - Physical Examination",  
+    x = "Adenopathy",  
+    y = "Count",  
+    fill = "Physical Examination"  
+  ) +
+  theme_minimal()
+```
+
+What is interesting is that people who do not have enlarged lymph nodes mostly have palpable nodules on the thyroid gland, regardless of the location. From the graph at the beginning, we see that the tumor in individuals without enlarged lymph nodes mostly does not recur. We conclude that the physical examination does not affect disease recurrence, as this examination was likely performed during the treatment of the initial tumor.
+
+```{r}
+ggplot(data, aes(x = Adenopathy, fill = Gender)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Adenopathy - Gender",  
+    x = "Adenopathy",  
+    y = "Count",  
+    fill = "Gender"  
+  ) +
+  theme_minimal()
+```
+
+As we can see, there are more men with bilateral and extensive adenopathy compared to women. This is because men mostly have palpable nodules on both sides of the thyroid gland, and bilateral and extensive adenopathy, as shown in the Adenopathy - Physical Examination graph, is most commonly associated with multinodular physical examination.
+
+#### Pathology
+
+Let's see pathology distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Pathology) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Pathology)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Pathology Distribution",  
+    fill = "Pathology"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$Pathology)),
+    labels = paste0(data_summary$Pathology, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+Pathology is the branch of medicine that focuses on the study and diagnosis of disease through the examination of tissues, organs, and bodily fluids. It involves understanding the causes, nature, and effects of diseases to diagnose and guide treatment.
+
+-   **Micropapillary**: Refers to a subtype of papillary thyroid carcinoma (a type of thyroid cancer). It is characterized by small papillary structures, usually less than 1 millimeter in size. Micropapillary thyroid carcinoma often has a good prognosis and is typically less aggressive than other forms of thyroid cancer.
+
+-   **Papillary**: Refers to papillary thyroid carcinoma, the most common type of thyroid cancer. It is characterized by the presence of papillary structures in the thyroid tissue. Papillary thyroid carcinoma often has a good prognosis and grows slowly. It tends to spread to nearby lymph nodes but rarely to distant sites.
+
+-   **Follicular**: Refers to follicular thyroid carcinoma, another type of thyroid cancer. It is characterized by the presence of follicular structures in the thyroid tissue. Follicular thyroid carcinoma can be more aggressive than papillary carcinoma and may spread to distant organs such as the lungs or bones.
+
+-   **Hurthle Cell**: Refers to Hurthle cell carcinoma, a rare type of thyroid cancer. It is characterized by the presence of Hurthle cells, which are large cells with abundant eosinophilic (pink-staining) cytoplasm. Hurthle cell carcinoma is considered a variant of follicular thyroid carcinoma and can be more aggressive.
+
+How are disease recurrence and pathology related?
+
+```{r}
+ggplot(data, aes(x = Pathology, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Pathology - Recurred",  
+    x = "Pathology",  
+    y = "Count",  
+    fill = "Recurred"  
+  ) +
+  theme_minimal()
+```
+
+This graph shows us that micropapillary pathology is the least harmful. Let's see precentages for this relation.
+
+```{r}
+data_summary <- data %>%
+  group_by(Pathology, Recurred) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+data_summary
+```
+
+This graph shows us that, as I mentioned, micropapillary pathology is the least harmful, followed by papillary and Hurthle cell pathologies with a similar ratio of non-recurrence to recurrence of tumors, 70:30, while follicular pathology has nearly 45% tumor recurrence. Let's filter people with micropappillary pathology.
+
+```{r}
+micropapillary <- filter(data, data$Pathology == "Micropapillary")
+```
+
+Now let's see relation between them and their adenopathy.
+
+```{r}
+ggplot(micropapillary, aes(x = Adenopathy)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Micropapillary Pathology - Adenopathy",  
+    x = "Adenopathy",  
+    y = "Count",  
+  ) +
+  theme_minimal()
+```
+
+The graph shows us that patients with micropapillary pathology do not have enlarged lymph nodes. What about smoking?
+
+```{r}
+ggplot(micropapillary, aes(x = Smokers_Category)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Micropapillary Pathology - Smokers Category",  
+    x = "Smokers Category",  
+    y = "Count",  
+  ) +
+  theme_minimal()
+```
+
+We can see that people with micropapillary pathology are mainly non smokers.
+
+#### Focality
+
+Let's see focality distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Focality) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Focality)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Focality Distribution",  
+    fill = "Focality"  
+  ) +
+  theme_void() +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),  
+            position = position_stack(vjust = 0.5)) 
+```
+
+From the graph, we can see that we have more people with multi-focal focality. Focality refers to the presence and distribution of pathological lesions or abnormalities in a specific area of an organ or tissue. It describes whether the lesions are concentrated in one place or spread across multiple areas.
+
+-   **Uni-Focal** means that there is a single, localized lesion or abnormality at one specific site. This indicates that the pathological process is confined to one area.
+
+-   **Multi-Focal** means that there are multiple lesions or abnormalities present at different sites within the same organ or tissue. This suggests that the pathological process is dispersed across several distinct areas.
+
+Let's see focality distribution with our target value.
+
+```{r}
+ggplot(data, aes(x = Focality, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Focality - Recurrence",  
+    x = "Focality",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+As we can see, chance of disease recurrence is bigger along people with multi-focal focality. Let's see relation between focality and other variables.
+
+```{r}
+ggplot(data, aes(x = Focality, fill = Physical.Examination)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Focality - Physical Examination",  
+    x = "Focality",  
+    y = "Count",  
+    fill = "Physical Examination"  
+  ) +
+  theme_minimal()
+```
+
+From this graph we can see that people with multi-focal focality mainly have multinodular goiter. Otherwise, people with uni-focal focality mainly have single nodular goiter on right side. Let'see relation between focality and pathology.
+
+```{r}
+ggplot(data, aes(x = Focality, fill = Pathology)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Focality - Pathology",  
+    x = "Focality",  
+    y = "Count",  
+    fill = "Pathology"  
+  ) +
+  theme_minimal()
+```
+
+Again, it's interesting that people with micropapillary pathology mainly have uni-focal focality. Let's see that on graph.
+
+```{r}
+ggplot(micropapillary, aes(x = Focality)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Micropapillary Focality",  
+    x = "Focality",  
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+#### Risk
+
+Let's see risk distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Risk) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Risk)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Risk Distribution",  
+    fill = "Risk"  
+  ) +
+  theme_void() +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),
+            position = position_stack(vjust = 0.5))
+```
+
+How risk affect our target variable?
+
+```{r}
+ggplot(data, aes(x = Risk, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Risk - Recurrence",  
+    x = "Risk",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+As we could have assumed, individuals with low risk have a low chance of tumor recurrence, individuals with intermediate risk have over a 50% chance, while those with high risk have a 100% tumor recurrence rate. Let's find out relation between risk and other variables and see how are they related. But first let's see risk ditribution along people with micropapillary pathology.
+
+```{r}
+ggplot(micropapillary, aes(x = Risk)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Micropapillary Risk",  
+    x = "Risk",  
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+From graph we can see only one person with intermediate risk. Let's see who it is.
+
+```{r}
+filter(data, data$Pathology == "Micropapillary" & data$Risk == "Intermediate")
+```
+
+Let's see all people with micropapillary pathology:
+
+```{r}
+filter(data, data$Pathology == "Micropapillary")
+```
+
+So, question is, why only one patient with micropapillary pathology have intermediate risk, with all other values similar to other patients. Considering we don't have other parameters and measurements, this person likely has other major health issues, resulting in a higher risk compared to other patients.
+
+```{r}
+ggplot(data, aes(x = Risk, fill = Age_Interval)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Risk - Recurrence",  
+    x = "Risk",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+This graph shows us few young persons with high risk. Who are they?
+
+```{r}
+filter(data, data$Risk == "High" & data$Age_Interval == "Young")
+```
+
+We can observe that these two individuals have a high risk, but they also have high values for T, which suggests that the tumor is larger and there is a risk of it spreading to surrounding organs.
+
+#### T
+
+Let's see T distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(T) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = T)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "T Distribution",  
+    fill = "T"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$T)),
+    labels = paste0(data_summary$T, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+The T classification is part of the TNM staging system, which is used to describe the size and extent of cancer. It specifically focuses on the size of the primary tumor and its extent of invasion into nearby tissues or structures.
+
+Main T Categories
+
+-   **T1:** The tumor is small and confined to the organ of origin.
+
+    -   **T1a:** The tumor is very small, often specified as a particular range of sizes depending on the type of cancer.
+
+    -   **T1b:** The tumor is slightly larger than T1a but still within the small size range.
+
+-   **T2:** The tumor is larger than T1 but still confined to the organ of origin.
+
+-   **T3:** The tumor is larger and/or has started to invade neighboring tissues.
+
+    -   **T3a:** Indicates a specific range or extent of invasion.
+
+    -   **T3b:** Indicates a more extensive invasion than T3a.
+
+-   **T4:** The tumor is very large or has invaded nearby structures.
+
+    -   **T4a:** The tumor has invaded nearby structures to a certain extent.
+
+    -   **T4b:** The tumor has invaded even further or into more critical structures compared to T4a.
+
+Let's see relation with disease recurrence.
+
+```{r}
+ggplot(data, aes(x = T, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "T - Recurrence",  
+    x = "T",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+We can observe, which is logical, that the T measure significantly affects disease recurrence. Given that a new annotation for T is used here, where T1 is divided into T1a and T1b, and the same applies to T3 and T4, and considering the small number of observations, we will combine these subdivisions into one and review the graph. However, as we can see, the division for T3 can cause issues because disease recurrence is significantly higher in individuals with T3b than with T3a, so we will keep this distinction.
+
+```{r}
+data$T <- as.character(data$T)
+
+data$T[data$T == "T1a" | data$T == "T1b"] <- "T1"
+data$T[data$T == "T4a" | data$T == "T4b"] <- "T4"
+
+data$T <- as.factor(data$T)
+```
+
+Let's see graph now:
+
+```{r}
+ggplot(data, aes(x = T, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "T - Recurrence",  
+    x = "T",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+First of all, let's see relation between pathology and T:
+
+```{r}
+ggplot(data, aes(x = T, fill = Pathology)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "T - Pathology",  
+    x = "T",  
+    y = "Count",
+    fill = "Pathology"
+  ) +
+  theme_minimal()
+```
+
+We can see that micropapillary pathology is related to T1 category. In other words, all patients with micropapillary pathology have T1 category. Does T category affect thyroid function?
+
+```{r}
+ggplot(data, aes(x = T, fill = Thyroid.Function)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "T - Thyroid Function",  
+    x = "T",  
+    y = "Count",
+    fill = "Thyroid Function"
+  ) +
+  theme_minimal()
+```
+
+Not really. Mainly patient have normal thyroid function(Euthyroid). We can assume that T category and Risk is related. Let's see what graph tells us:
+
+```{r}
+ggplot(data, aes(x = T, fill = Risk)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "T - Risk",  
+    x = "T",  
+    y = "Count",
+    fill = "Risk"
+  ) +
+  theme_minimal()
+```
+
+Graph confirms our assumption. Let's see table:
+
+```{r}
+table(data$T, data$Risk)
+```
+
+Let's see Adenopathy and T category relation:
+
+```{r}
+ggplot(data, aes(x = T, fill = Adenopathy)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "T - Adenopathy",  
+    x = "T",  
+    y = "Count",
+    fill = "Adenopathy"
+  ) +
+  theme_minimal()
+```
+
+We can conclude that T3b and T4 stages have various cases, but the presence of enlarged lymph nodes predominates. For T1 and T2 stages, the absence of enlarged lymph nodes predominates. Let's see table:
+
+```{r}
+table(data$T, data$Adenopathy)
+```
+
+For T3a category, it's almost 50:50. We have 55 patient with no Adenopathy, and 40 with some kind of Adenopathy. What about Adenopathy?
+
+```{r}
+ggplot(data, aes(x = T, fill = Focality)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "T - Focality",  
+    x = "T",  
+    y = "Count",
+    fill = "Focality"
+  ) +
+  theme_minimal()
+```
+
+Let's see table:
+
+```{r}
+table(data$T, data$Focality)
+```
+
+Let's see people with uni-focal focality and T4 category:
+
+```{r}
+filter(data, data$Focality == "Uni-Focal" & data$T == "T4")
+```
+
+We see that all of them have a high risk and all experienced a recurrence of the disease. What is interesting is that all of them had an incomplete response to treatment (Biochemical or Structural).
+
+#### N
+
+Let's see N distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(N) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = N)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "N Distribution",  
+    fill = "N"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$N)),
+    labels = paste0(data_summary$N, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+In the TNM classification system for tumors, the "N" stands for **"Nodes"** and refers to whether the cancer has spread to the nearby **lymph nodes**. This is an important factor in determining the stage of cancer and its likely prognosis. Here's a breakdown of how the "N" category is classified:
+
+-   **NX**: Regional lymph nodes cannot be assessed (e.g., if there's no information available).
+
+-   **N0**: No regional lymph node involvement (no cancer found in the nearby lymph nodes).
+
+-   **N1, N2, N3**: Increasing involvement of regional lymph nodes, with higher numbers indicating more extensive involvement. The specific meaning of N1, N2, and N3 can vary depending on the type and location of the cancer.
+
+In our data, we have only N0, N1a and N1b. Let's se relation between this variable and target variable.
+
+```{r}
+ggplot(data, aes(x = N, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "N - Recurrence",  
+    x = "N",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+From this graph, we can see that people with higher N stage of TNM classification are more likely to get disease recurrence. Adenopathy and N classification are similar and refers to lymph nodes. Let's see relation between them:
+
+```{r}
+ggplot(data, aes(x = N, fill = Adenopathy)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "N - Adenopathy",  
+    x = "N",  
+    y = "Count",
+    fill = "Adenopahty"
+  ) +
+  theme_minimal()
+```
+
+As we can see from the graph, patients in the N1b category have significantly enlarged lymph nodes, which is expected. Patients in the N0 category generally do not have lymph node enlargement, and when it does occur, it is likely due to another infection.
+
+#### M
+
+Let's see M distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(M) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = M)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "M Distribution",  
+    fill = "M"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$M)),
+    labels = paste0(data_summary$M, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+In the TNM classification system for tumors, the "M" stands for **"Metastasis"** and refers to whether the cancer has spread to distant parts of the body (beyond the original tumor site and nearby lymph nodes). This is a critical factor in determining the stage of cancer, as metastasis indicates more advanced disease.
+
+Here’s a breakdown of how the "M" category is classified:
+
+-   **MX**: Distant metastasis cannot be assessed (e.g., there is no information available about whether the cancer has spread).
+
+-   **M0**: No distant metastasis (the cancer has not spread to other parts of the body).
+
+-   **M1**: Distant metastasis is present (the cancer has spread to distant organs or tissues). The specific location of metastasis may be indicated, such as in the bones, liver, lungs, or other distant sites.
+
+The presence of distant metastasis (M1) typically signifies a more advanced stage of cancer, and it is often associated with a poorer prognosis.
+
+In our data we have small number of patients with M1 category. Let's see them.
+
+```{r}
+M1_category <- filter(data, data$M == "M1")
+M1_category
+```
+
+It's interesting that all of them have structural incomplete (just one patient has biochemical incomplete) response to treatment and disease recurrence. Let's see relation between this variable and our target:
+
+```{r}
+ggplot(data, aes(x = M, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "M - Recurrence",  
+    x = "M",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+As we mentioned, all patients in the M1 category experience disease recurrence, while patients in the M0 category are less likely to experience recurrence.
+
+#### Stage
+
+Let's see Stage distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Stage) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Stage)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Stage Distribution",  
+    fill = "Stage"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$Stage)),
+    labels = paste0(data_summary$Stage, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+In the classification of thyroid cancer, the **"Stage"** describes the size of the tumor, whether it has spread to nearby tissues such as lymph nodes, and whether it has metastasized to other parts of the body. The stage is crucial for determining the treatment plan and prognosis for the patient. Staging typically follows a system from Stage I to Stage IV, with higher numbers indicating more advanced cancer.
+
+Here’s a breakdown of the thyroid cancer stages:
+
+-   **Stage I**: The cancer is limited to the thyroid gland and is generally smaller in size (less than 2 cm). It has not spread to nearby lymph nodes or distant parts of the body.
+
+-   **Stage II**: The tumor may be slightly larger (between 2 and 4 cm) but is still confined to the thyroid. It may have spread to nearby lymph nodes in some cases, but distant spread (metastasis) is not present.
+
+-   **Stage III**: The tumor is larger than 4 cm or has spread beyond the thyroid to nearby tissues, such as the muscles or nerves near the thyroid. Cancer may have also spread to nearby lymph nodes, but there is no distant metastasis.
+
+-   **Stage IV**: This stage is divided into sub-stages (IVA, IVB, and IVC) based on the extent of spread:
+
+    -   **IVA**: The cancer has spread to tissues around the thyroid and/or to nearby lymph nodes.
+
+    -   **IVB**: The tumor has grown further into nearby tissues, possibly affecting structures like the esophagus or trachea, and may involve more distant lymph nodes.
+
+    -   **IVC**: The cancer has metastasized to distant parts of the body, such as the lungs or bones.
+
+In thyroid cancer, early detection (Stages I and II) often leads to highly effective treatment outcomes, while more advanced stages require more aggressive approaches.
+
+We can observe that the majority of people are in Stage I. Similarly, we can notice that the number of patients in Stages III, IVA, and IVB is collectively below 5%. Let's explore how the cancer stage is related to our target variable and examine these patients with advanced stages.
+
+```{r}
+ggplot(data, aes(x = Stage, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Stage - Recurrence",  
+    x = "M",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+From the graph, we can clearly see that people with Stage III, IVA, and IVB have a 100% chance of tumor recurrence.
+
+```{r}
+filter(data, data$Stage == "III")
+```
+
+```{r}
+filter(data, data$Stage == "IVA")
+
+```
+
+```{r}
+filter(data, data$Stage == "IVB")
+```
+
+What we can observe is that all patients with cancer stage III and above have an incomplete response to the treatment, and we can conclude that this is a very important feature for us.
+
+#### Response
+
+Let's see Response distribution in our data:
+
+```{r}
+data_summary <- data %>%
+  group_by(Response) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+ggplot(data_summary, aes(x = "", y = Percentage, fill = Response)) +
+  geom_bar(stat = "identity", width = 1) +  
+  coord_polar("y", start = 0) +  
+  labs(
+    title = "Response Distribution",  
+    fill = "Response"  
+  ) +
+  theme_void() +
+  scale_fill_manual(
+    values = scales::hue_pal()(length(data_summary$Response)),
+    labels = paste0(data_summary$Response, " (", round(data_summary$Percentage, 1), "%)")
+  )
+```
+
+-   **Biochemical Incomplete**:\
+    This refers to cases where there are abnormal biochemical markers (such as thyroglobulin levels or antithyroglobulin antibodies) indicating the possible presence of remaining thyroid tissue or cancer, but no structural evidence of disease is found. This often suggests that the cancer may still be present at a microscopic level.
+
+-   **Excellent Response**:\
+    This is the ideal outcome. It means there is no biochemical or structural evidence of disease. Thyroid cancer markers, such as thyroglobulin, are undetectable, and imaging shows no signs of cancer. This indicates that the treatment has been very effective.
+
+-   **Indeterminate Response**:\
+    This outcome is uncertain. There may be slightly elevated or fluctuating biochemical markers or inconclusive imaging findings. These findings don’t clearly suggest the presence of cancer, but they also don’t confirm that the cancer is fully gone. Further monitoring is usually needed.
+
+-   **Structural Incomplete**:\
+    This refers to cases where imaging shows visible evidence of persistent or recurrent disease, such as a tumor or lymph node involvement. This indicates that the cancer has not been fully removed or has recurred, and additional treatment is typically required.
+
+```{r}
+ggplot(data, aes(x = Response, fill = Recurred)) +
+  geom_bar(position = "dodge", color = "black", alpha = 0.7) +
+  labs(
+    title = "Response - Recurred",  
+    x = "M",  
+    y = "Count",
+    fill = "Recurred"
+  ) +
+  theme_minimal()
+```
+
+What we can see is that structural incomplete has the worst outcome, which is logical because it indicates visible evidence of persistent or recurrent disease, meaning the cancer has not been fully removed or has come back, requiring additional treatment.
+
+```{r}
+filter(data, data$Recurred == "No" & data$Response == "Structural Incomplete")
+```
+
+```{r}
+filter(data, data$Recurred == "Yes" & data$Response == "Structural Incomplete")
+```
+
+It is interesting that only two people with a structural incomplete response did not experience a tumor recurrence. No correlation can be established between the other variables to determine the reason. There are several possibilities, such as the treatment method, hospital quality, immune system, and so on.
+
+### Feature Selection
+
+As for the division into training and test sets, we will use stratification for splitting our data from the caret library, and for predictor selection, we will use LASSO and Ridge from the glmnet library. After creating the models, we will compare the results and see which regularization performed better.
+
+```{r}
+library(caret)
+library(glmnet)
+```
+
+```{r}
+set.seed(42)  
+
+train_index <- createDataPartition(data$Recurred, p = 0.8, list = FALSE)
+
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+cat("Train data number", nrow(train_data), "\n")
+cat("Test data number", nrow(test_data), "\n")
+```
+
+```{r}
+X_train <- train_data[, -which(names(train_data) == "Recurred")]
+
+#ONE HOT ENCODING
+X_train_dummy <- model.matrix(~ . - 1, data = X_train)
+
+#CONVERT TARGET TO NUMERIC
+y_train <- train_data$Recurred
+
+set.seed(123)
+
+#K VALIDATION
+control <- trainControl(method = "cv", number = 10)
+
+#LASSO
+lasso_model <- train(X_train_dummy, y_train, 
+                     method = "glmnet", 
+                     trControl = control, 
+                     tuneGrid = expand.grid(alpha = 1, lambda = seq(0, 1, by = 0.1)))
+
+print(lasso_model)
+
+#RIDGE
+ridge_model <- train(X_train_dummy, y_train, 
+                     method = "glmnet", 
+                     trControl = control, 
+                     tuneGrid = expand.grid(alpha = 0, lambda = seq(0, 1, by = 0.1)))
+
+print(ridge_model)
+```
+
+It is evident that Lasso regression applies a penalty to the coefficients, while Ridge regression does not impose any penalty, resulting in a lambda value of zero. This could potentially lead to overfitting in the Ridge model. We will use Lasso.
+
+### Building the Predictive Model
+
+Now we will train a random forest model and see the results of such a model on the test set. Since we used one-hot encoding, we will use a random forest as tree-based models handle one-hot encoded data more effectively.
+
+```{r}
+library(randomForest)
+
+lasso_coefs <- coef(lasso_model$finalModel, s = lasso_model$bestTune$lambda)
+
+# Convert the coefficients to a vector and extract selected features
+selected_features <- rownames(lasso_coefs)[which(lasso_coefs != 0)]
+selected_features <- selected_features[selected_features != "(Intercept)"]
+
+# Prepare the training data with selected features for Random Forest
+X_train_selected <- X_train_dummy[, selected_features]
+
+# Train the Random Forest model using selected features
+set.seed(43)
+rf_model <- randomForest(x = X_train_selected, y = y_train, importance = TRUE, ntree = 500)
+
+# Print the Random Forest model
+print(rf_model)
+
+# Prepare the test data
+X_test <- test_data[, -which(names(test_data) == "Recurred")]
+X_test_dummy <- model.matrix(~ . - 1, data = X_test)
+
+# Prepare the test set using the same selected features
+X_test_selected <- X_test_dummy[, selected_features]
+
+# Make predictions on the test set
+predictions <- predict(rf_model, newdata = X_test_selected)
+
+# Confusion matrix to evaluate the Random Forest model
+confusion_matrix <- confusionMatrix(predictions, test_data$Recurred)
+print(confusion_matrix)
+
+# Print metrics
+accuracy <- confusion_matrix$overall['Accuracy']
+precision <- confusion_matrix$byClass["Precision"]
+recall <- confusion_matrix$byClass["Recall"]
+
+print(paste("Accuracy:", accuracy))
+print(paste("Precision:", precision))
+print(paste("Recall:", recall))
+
+# F1 score
+F1_score <- 2 * (precision * recall) / (precision + recall)
+print(paste("F1 Score:", round(F1_score, 4)))  
+```
+
+### Model Evaluation
+
+We trained a Random Forest model on the selected features from LASSO, using 500 trees for the classification. The Out-Of-Bag (OOB) error estimate, which gives us a sense of the model's performance on unseen data, was **6.51%**, indicating a strong model fit.
+
+-   **Number of Trees**: 500
+
+-   **OOB Error Rate**: 6.51%
+
+**Confusion Matrix (Test Set):**\
+The confusion matrix helps to evaluate the performance of the model by comparing the predicted and actual values. The model accurately predicted both the positive and negative classes with minimal errors.
+
+-   **True Negatives (TN)**: 54 (Correctly predicted 'No recurrence')
+
+-   **False Positives (FP)**: 1 (Incorrectly predicted 'Yes recurrence')
+
+-   **False Negatives (FN)**: 1 (Incorrectly predicted 'No recurrence')
+
+-   **True Positives (TP)**: 20 (Correctly predicted 'Yes recurrence')
+
+**Model Performance (Test Set):**\
+The following metrics provide a deeper insight into how well the model performs in terms of classification:
+
+-   **Accuracy**: 97.37% (The proportion of total correct predictions, with a confidence interval of 90.82% to 99.68%)
+
+-   **Kappa**: 0.9342 (A measure of agreement between predicted and actual values, adjusted for chance)
+
+-   **Sensitivity**: 98.18% (The ability of the model to correctly identify positive cases)
+
+-   **Specificity**: 95.24% (The ability of the model to correctly identify negative cases)
+
+-   **Precision**: 98.18% (The proportion of true positive predictions out of all positive predictions)
+
+-   **Recall**: 98.18% (Also known as Sensitivity, the proportion of actual positives correctly identified)
+
+-   **F1 Score**: 0.9818 (A balance between Precision and Recall)
+
+-   **Balanced Accuracy**: 96.71% (The average of Sensitivity and Specificity, useful for imbalanced datasets)
+
+This evaluation shows that our Random Forest model performs well with high accuracy and balanced performance across both classes. Since we used one-hot encoding, Random Forest was particularly effective, as tree-based models handle such encoding efficiently.
