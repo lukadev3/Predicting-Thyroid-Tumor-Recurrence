@@ -166,7 +166,8 @@ ggplot(data_summary, aes(x = "", y = Percentage, fill = Recurred)) +
             position = position_stack(vjust = 0.5))
 ```
 
-From the graph we can see that there are more patients who haven't experienced disease recurrence, than patients who have. We will now go deeply in analyzing our data set. \#### Age
+From the graph we can see that there are more patients who haven't experienced disease recurrence, than patients who have. We will now go deeply in analyzing our data set. 
+#### Age
 
 Let's see age distribution in our data:
 
@@ -1451,145 +1452,507 @@ It is interesting that only two people with a structural incomplete response did
 
 ### Feature Selection
 
-As for the division into training and test sets, we will use stratification for splitting our data from the caret library, and for predictor selection, we will use LASSO and Ridge from the glmnet library. After creating the models, we will compare the results and see which regularization performed better.
+Because of small number of sampler for negative class (Recurrence = Yes), Decision Trees might not be the best option. We will try with Logistic Regression and KNN, but first let's see which features to use. We will use Chi Square Test and Fisher Test to determine which feature to use.
+
+#### Age
+For Age we will use Mann-Whitney U Test because Age is not normally distributed and we have two classes.
+
+```{r}
+print(wilcox.test(data$Age ~ data$Recurred))
+```
+Since the p-value is very small (3.553e-05), we can reject the null hypothesis and conclude that there is a **statistically significant difference** in the **Age** distribution between individuals whose disease has recurred (Recurred = Yes) and those whose disease has not recurred (Recurred = No). Therefore, Age is a relevant feature for distinguishing between the two groups.
+
+#### Gender
+For Gender we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Gender, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+We should select **Gender** as a feature because the statistical tests (both Chi-square and Fisher's Exact Test) indicate a **significant association** between Gender and the target variable (Disease). The extremely low p-value suggests a strong relationship, implying that Gender is likely predictive of the target outcome. Additionally, the **odds ratio** and its confidence interval show that the likelihood of the disease differs significantly between genders, confirming that Gender has a meaningful impact on the target variable and should therefore be included as an influential feature in your model.
+
+#### Smokers Category
+
+For Smokers Category we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Smokers_Category, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+Given the very low p-value, we can confidently reject the null hypothesis and conclude that there is a significant association between the two categorical variables. This suggests that the two variables are not independent of each other, and there is some form of dependence or relationship between them.
+
+#### Radio Therapy History
+
+For Radio Therapy History we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Hx.Radiothreapy, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+The Fisher's Exact Test indicates a strong association between the two categorical variables. Specifically, the odds of the outcome occurring in one group are significantly higher than in the other group, with an odds ratio of approximately 16. This suggests a substantial and statistically significant relationship between the variables.
+
+#### Thyroid Function
+
+For Thyroid Function we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Thyroid.Function, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+With a p-value of 0.328, there is no significant association between the two variables in our data. This suggests that the variables are likely independent of each other, and no meaningful relationship can be drawn based on the test.
+
+#### Physical Examination
+
+For Physical Examination we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Physical.Examination, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+With a p-value of 0.009183, you can conclude that there is a statistically significant relationship between the two categorical variables. Therefore, these variables are likely dependent on each other, and the association is unlikely to have occurred by chance.
+
+#### Adenopathy
+
+For Adenopathy we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Adenopathy, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+With a p-value less than 2.2e-16, you have strong statistical evidence to reject the null hypothesis. This indicates a highly significant association between the two categorical variables, meaning they are not independent of each other. The result suggests that the relationship between the variables is very unlikely to be due to chance.
+
+#### Pathology
+
+For Pathology we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Pathology, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+With a p-value of 2.824e-07, there is strong evidence to reject the null hypothesis. This indicates that the two categorical variables are statistically significantly associated, meaning the relationship between them is unlikely to have occurred by chance. The result suggests a meaningful dependency between the variables.
+
+#### Focality
+
+For Pathology we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Focality, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+With a p-value of 2.192e-13, there is strong evidence to reject the null hypothesis. The odds ratio of 0.17 suggests that one group has significantly lower odds of the outcome compared to the other group. This means that the two variables are significantly dependent on each other, with a clear relationship between them.
+
+#### Risk
+
+For Risk we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Risk, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+With a p-value less than 2.2e-16, you can confidently reject the null hypothesis. This suggests that the two categorical variables are statistically significantly associated, meaning they are not independent of each other. The result indicates a strong and highly significant relationship between the variables. Because, it's not easy to measure Risk, we will not use it in our model.
+
+#### T
+
+For T classification we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$T, data$Recurred)
+result <- fisher.test(table_data, simulate.p.value = TRUE, B = 10000)
+print(result)
+```
+With a p-value of 9.999e-05, you can confidently reject the null hypothesis, meaning there is a significant association between the two categorical variables. The result indicates that the variables are not independent of each other and are likely dependent on each other. This conclusion is based on the simulated p-value approach, which was used due to the limitations in exact computation.
+
+#### N
+
+For N classification we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$N, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+With a p-value less than 2.2e-16, you can confidently reject the null hypothesis. This indicates that the two categorical variables are statistically significantly associated, meaning they are not independent of each other. The result suggests a strong and highly significant relationship between the variables.
+
+#### M
+
+For M classification we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$M, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+In summary, the Fisher's Exact Test strongly suggests a significant and potentially very strong association between the two variables in the table, but the infinite odds ratio points to an extreme relationship that may need further investigation (e.g., checking for zero counts or other data issues). Let's se table.
+
+```{r}
+table_data
+```
+Yes, it's zero counts. However, we can see from this table that this feature is significant.
+
+#### Stage
+
+For Stage we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Stage, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+
+The result strongly suggests that the variables in your table are significantly associated.
+
+#### Response
+
+For Response we will use Fisher Test because of unbalanced samples.
+```{r}
+table_data <- table(data$Response, data$Recurred)
+result <- fisher.test(table_data)
+print(result)
+```
+This result strongly supports the idea that the variables in our table are statistically significantly associated.
+
+
+### Building the Predictive Model
+
+First, we load the necessary libraries: caret for model training and evaluation, and glmnet which can be useful for regression and regularization in later steps.
 
 ```{r}
 library(caret)
 library(glmnet)
 ```
 
+Here, we set a random seed for reproducibility (set.seed(42)). Then, we remove columns we don't want to use (Thyroid Function and Risk) from the data. After that, we split the data into training and test sets.
+
 ```{r}
-set.seed(42)  
+library(ROSE)
 
-train_index <- createDataPartition(data$Recurred, p = 0.8, list = FALSE)
+set.seed(42)
 
-train_data <- data[train_index, ]
-test_data <- data[-train_index, ]
+data <- data[, !(names(data) %in% c("Thyroid Function", "Risk"))]
 
-cat("Train data number", nrow(train_data), "\n")
-cat("Test data number", nrow(test_data), "\n")
+cat("No class count before oversampling: ", sum(data$Recurred == "No"), "\n")
+cat("Yes class count before oversampling: ", sum(data$Recurred == "Yes"), "\n")
+
+N = sum(data$Recurred == "No")  
+
+data_oversampled <- ovun.sample(Recurred ~ ., data = data, method = "over", 550, seed = 42)$data
+
+cat("No class count after oversampling: ", sum(data_oversampled$Recurred == "No"), "\n")
+cat("Yes class count after oversampling: ", sum(data_oversampled$Recurred == "Yes"), "\n")
+
+train_index <- createDataPartition(data_oversampled$Recurred, p = 0.6, list = FALSE)
+
+train_data <- data_oversampled[train_index, ]
+test_data <- data_oversampled[-train_index, ]
+
+cat("Train data number: ", nrow(train_data), "\n")
+cat("Test data number: ", nrow(test_data), "\n")
 ```
 
+In this section, we analyze correlations between categorical variables in the training set. First, we filter out the categorical variables from train_data. Then, we create an empty matrix to hold the Cramér's V correlation values. Using a double loop, we calculate the contingency table and Cramér's V correlation for each pair of categorical variables and store the results in the matrix. The matrix is symmetric, so we fill both the upper and lower triangles with the same value.
+
 ```{r}
-X_train <- train_data[, -which(names(train_data) == "Recurred")]
+library(vcd)
 
-#ONE HOT ENCODING
-X_train_dummy <- model.matrix(~ . - 1, data = X_train)
+categorical_data <- data[, sapply(data, is.factor)]
 
-#CONVERT TARGET TO NUMERIC
-y_train <- train_data$Recurred
+correlation_matrix <- matrix(NA, nrow = ncol(categorical_data), ncol = ncol(categorical_data))
+colnames(correlation_matrix) <- colnames(categorical_data)
+rownames(correlation_matrix) <- colnames(categorical_data)
 
-set.seed(123)
+for(i in 1:ncol(categorical_data)) {
+  for(j in i:ncol(categorical_data)) {
+    table_data <- table(categorical_data[, i], categorical_data[, j])
+    assoc <- assocstats(table_data)
+    correlation_matrix[i, j] <- assoc$cramer
+    correlation_matrix[j, i] <- assoc$cramer  
+  }
+}
 
-#K VALIDATION
-control <- trainControl(method = "cv", number = 10)
-
-#LASSO
-lasso_model <- train(X_train_dummy, y_train, 
-                     method = "glmnet", 
-                     trControl = control, 
-                     tuneGrid = expand.grid(alpha = 1, lambda = seq(0, 1, by = 0.1)))
-
-print(lasso_model)
-
-#RIDGE
-ridge_model <- train(X_train_dummy, y_train, 
-                     method = "glmnet", 
-                     trControl = control, 
-                     tuneGrid = expand.grid(alpha = 0, lambda = seq(0, 1, by = 0.1)))
-
-print(ridge_model)
 ```
 
-It is evident that Lasso regression applies a penalty to the coefficients, while Ridge regression does not impose any penalty, resulting in a lambda value of zero. This could potentially lead to overfitting in the Ridge model. We will use Lasso.
 
-### Building the Predictive Model
-
-Now we will train a random forest model and see the results of such a model on the test set. Since we used one-hot encoding, we will use a random forest as tree-based models handle one-hot encoded data more effectively.
+After calculating the Cramér's V correlations, we convert the correlation matrix into a data frame and create a heatmap using ggplot2. This heatmap visually represents the correlations between variables, with colors indicating the strength of the correlation (blue for negative, red for positive). We rotate the x and y axis labels for better readability and remove grid lines for a cleaner look.
 
 ```{r}
-library(randomForest)
+correlation_data <- as.data.frame(as.table(correlation_matrix))
+colnames(correlation_data) <- c("Var1", "Var2", "CramersV")
 
-lasso_coefs <- coef(lasso_model$finalModel, s = lasso_model$bestTune$lambda)
+ggplot(correlation_data, aes(Var1, Var2, fill = CramersV)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0.5) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 16),
+    panel.grid = element_blank(),
+  ) +
+  labs(title = "Cramér's V Correlation Heatmap",
+       x = "Variables",
+       y = "Variables")
+```
+Let's extract features with correlation above 0.5 with our target variable.
 
-# Convert the coefficients to a vector and extract selected features
-selected_features <- rownames(lasso_coefs)[which(lasso_coefs != 0)]
-selected_features <- selected_features[selected_features != "(Intercept)"]
+```{r}
+selected_features <- correlation_data[correlation_data$Var1 == "Recurred" & correlation_data$Var2 != "Recurred" & correlation_data$CramersV > 0.5, ]
+selected_features
+```
 
-# Prepare the training data with selected features for Random Forest
-X_train_selected <- X_train_dummy[, selected_features]
+We have one problem. We have N classification and Adenopathhy as good features for our target, but these two features have strong relation, so we can not use them in model together. Other features aren't problem.
 
-# Train the Random Forest model using selected features
-set.seed(43)
-rf_model <- randomForest(x = X_train_selected, y = y_train, importance = TRUE, ntree = 500)
+#### Decision Tree
 
-# Print the Random Forest model
-print(rf_model)
+After oversampling, we have same samples of Yes and No classes in our data and we can use Decision Tree and other models based on Decision Tree. Let's make model with all these features and see how god is it.
 
-# Prepare the test data
-X_test <- test_data[, -which(names(test_data) == "Recurred")]
-X_test_dummy <- model.matrix(~ . - 1, data = X_test)
+```{r}
+library(rpart)
 
-# Prepare the test set using the same selected features
-X_test_selected <- X_test_dummy[, selected_features]
+dt_model <- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
+                  data = train_data, 
+                  method = "rpart")
 
-# Make predictions on the test set
-predictions <- predict(rf_model, newdata = X_test_selected)
+predictions <- predict(dt_model, test_data, type = "raw")
 
-# Confusion matrix to evaluate the Random Forest model
-confusion_matrix <- confusionMatrix(predictions, test_data$Recurred)
+confusion_matrix <- table(Predicted = predictions, Actual = test_data$Recurred)
 print(confusion_matrix)
-
-# Print metrics
-accuracy <- confusion_matrix$overall['Accuracy']
-precision <- confusion_matrix$byClass["Precision"]
-recall <- confusion_matrix$byClass["Recall"]
-
-print(paste("Accuracy:", accuracy))
-print(paste("Precision:", precision))
-print(paste("Recall:", recall))
-
-# F1 score
-F1_score <- 2 * (precision * recall) / (precision + recall)
-print(paste("F1 Score:", round(F1_score, 4)))  
 ```
+We have very good results for metrics. Let's see metrics on train and test data and how tree look like:
+
+```{r}
+train_pred <- predict(dt_model, train_data, type = "raw")
+train_confusion_matrix <- table(train_pred, train_data$Recurred)
+
+train_accuracy <- sum(diag(train_confusion_matrix)) / sum(train_confusion_matrix)
+train_precision <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[1, 2])
+train_recall <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[2, 1])
+train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
+
+test_pred <- predict(dt_model, test_data, type = "raw")
+test_confusion_matrix <- table(test_pred, test_data$Recurred)
+
+test_accuracy <- sum(diag(test_confusion_matrix)) / sum(test_confusion_matrix)
+test_precision <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[1, 2])
+test_recall <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[2, 1])
+test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
+
+cat("Training Accuracy:", train_accuracy, "\n")
+cat("Test Accuracy:", test_accuracy, "\n")
+cat("Training Precision:", train_precision, "\n")
+cat("Test Precision:", test_precision, "\n")
+cat("Training Recall:", train_recall, "\n")
+cat("Test Recall:", test_recall, "\n")
+cat("Training F1-Score:", train_f1, "\n")
+cat("Test F1-Score:", test_f1, "\n")
+
+```
+
+
+```{r}
+library(rpart.plot)
+
+rpart.plot(dt_model$finalModel, main = "Decision Tree Model", type = 3, extra = 102)
+```
+
+We have slightly better results on our train data than test data. Let's do cross validation and train our model to be sure it's fitted good.
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10)  
+
+dt_model<- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
+                     data = train_data, 
+                     method = "rpart", 
+                     trControl = train_control)
+
+predictions <- predict(dt_model, test_data, type = "raw")
+
+confusion_matrix <- table(Predicted = predictions, Actual = test_data$Recurred)
+print(confusion_matrix)
+```
+```{r}
+train_pred <- predict(dt_model, train_data, type = "raw")
+train_confusion_matrix <- table(train_pred, train_data$Recurred)
+
+train_accuracy <- sum(diag(train_confusion_matrix)) / sum(train_confusion_matrix)
+train_precision <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[1, 2])
+train_recall <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[2, 1])
+train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
+
+test_pred <- predict(dt_model, test_data, type = "raw")
+test_confusion_matrix <- table(test_pred, test_data$Recurred)
+
+test_accuracy <- sum(diag(test_confusion_matrix)) / sum(test_confusion_matrix)
+test_precision <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[1, 2])
+test_recall <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[2, 1])
+test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
+
+cat("Training Accuracy:", train_accuracy, "\n")
+cat("Test Accuracy:", test_accuracy, "\n")
+cat("Training Precision:", train_precision, "\n")
+cat("Test Precision:", test_precision, "\n")
+cat("Training Recall:", train_recall, "\n")
+cat("Test Recall:", test_recall, "\n")
+cat("Training F1-Score:", train_f1, "\n")
+cat("Test F1-Score:", test_f1, "\n")
+```
+
+```{r}
+rpart.plot(dt_model$finalModel, main = "Decision Tree Model", type = 3, extra = 102)
+```
+
+We have the same model. Now let's try more complex model, Random Forest Classifier.
+
+#### Random Forest Classifier
+
+Let's implement Random Forest Classifier and see metrics.
+
+```{r}
+dt_model <- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
+                  data = train_data, 
+                  method = "rf")
+
+predictions <- predict(dt_model, test_data, type = "raw")
+
+confusion_matrix <- table(Predicted = predictions, Actual = test_data$Recurred)
+print(confusion_matrix)
+```
+
+
+```{r}
+train_pred <- predict(dt_model, train_data, type = "raw")
+train_confusion_matrix <- table(train_pred, train_data$Recurred)
+
+train_accuracy <- sum(diag(train_confusion_matrix)) / sum(train_confusion_matrix)
+train_precision <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[1, 2])
+train_recall <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[2, 1])
+train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
+
+test_pred <- predict(dt_model, test_data, type = "raw")
+test_confusion_matrix <- table(test_pred, test_data$Recurred)
+
+test_accuracy <- sum(diag(test_confusion_matrix)) / sum(test_confusion_matrix)
+test_precision <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[1, 2])
+test_recall <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[2, 1])
+test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
+
+cat("Training Accuracy:", train_accuracy, "\n")
+cat("Test Accuracy:", test_accuracy, "\n")
+cat("Training Precision:", train_precision, "\n")
+cat("Test Precision:", test_precision, "\n")
+cat("Training Recall:", train_recall, "\n")
+cat("Test Recall:", test_recall, "\n")
+cat("Training F1-Score:", train_f1, "\n")
+cat("Test F1-Score:", test_f1, "\n")
+
+```
+We got a better score than Decision Tree Classifier. Let's use cross validation and see results:
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10)  
+
+dt_model <- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
+                  data = train_data, 
+                  method = "rf",
+                  trControl = train_control)
+
+predictions <- predict(dt_model, test_data, type = "raw")
+
+confusion_matrix <- table(Predicted = predictions, Actual = test_data$Recurred)
+print(confusion_matrix)
+```
+
+```{r}
+train_pred <- predict(dt_model, train_data, type = "raw")
+train_confusion_matrix <- table(train_pred, train_data$Recurred)
+
+train_accuracy <- sum(diag(train_confusion_matrix)) / sum(train_confusion_matrix)
+train_precision <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[1, 2])
+train_recall <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[2, 1])
+train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
+
+test_pred <- predict(dt_model, test_data, type = "raw")
+test_confusion_matrix <- table(test_pred, test_data$Recurred)
+
+test_accuracy <- sum(diag(test_confusion_matrix)) / sum(test_confusion_matrix)
+test_precision <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[1, 2])
+test_recall <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[2, 1])
+test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
+
+cat("Training Accuracy:", train_accuracy, "\n")
+cat("Test Accuracy:", test_accuracy, "\n")
+cat("Training Precision:", train_precision, "\n")
+cat("Test Precision:", test_precision, "\n")
+cat("Training Recall:", train_recall, "\n")
+cat("Test Recall:", test_recall, "\n")
+cat("Training F1-Score:", train_f1, "\n")
+cat("Test F1-Score:", test_f1, "\n")
+```
+We got a better test score, but slightly worse train score. So, let's do recap and evaluate our models.
 
 ### Model Evaluation
 
-We trained a Random Forest model on the selected features from LASSO, using 500 trees for the classification. The Out-Of-Bag (OOB) error estimate, which gives us a sense of the model's performance on unseen data, was **6.51%**, indicating a strong model fit.
+#### 1. Basic Decision Tree
 
--   **Number of Trees**: 500
+The basic Decision Tree model was trained without cross-validation, using the training data. This model achieved decent results, but there are some limitations in accuracy on the test set.
 
--   **OOB Error Rate**: 6.51%
+- **Training Accuracy**: 93.94%
+- **Test Accuracy**: 93.18%
+- **Training Precision**: 92.73%
+- **Test Precision**: 91.82%
+- **Training Recall**: 95.03%
+- **Test Recall**: 94.39%
 
-**Confusion Matrix (Test Set):**\
-The confusion matrix helps to evaluate the performance of the model by comparing the predicted and actual values. The model accurately predicted both the positive and negative classes with minimal errors.
+The model achieved a high accuracy of 93.94% on the training set and 93.18% on the test set, which shows that it performs well. Precision and recall are also good, indicating that the model is able to make accurate predictions without many false positives or false negatives. However, there is a slight difference in performance between the training and test sets, which may suggest mild overfitting. Overfitting occurs when the model becomes too complex and performs well on training data but fails to generalize to unseen data.
 
--   **True Negatives (TN)**: 54 (Correctly predicted 'No recurrence')
+#### 2. Decision Tree with 10-Fold Cross-Validation
 
--   **False Positives (FP)**: 1 (Incorrectly predicted 'Yes recurrence')
+The 10-fold cross-validation approach provides a more reliable estimate of model performance by reducing the possibility of overfitting. This model performed similarly to the basic Decision Tree, but with small improvements in F1-Score.
 
--   **False Negatives (FN)**: 1 (Incorrectly predicted 'No recurrence')
+- **Training Accuracy**: 93.94%
+- **Test Accuracy**: 93.18%
+- **Training Precision**: 92.73%
+- **Test Precision**: 91.82%
+- **Training Recall**: 95.03%
+- **Test Recall**: 94.39%
+- **Training F1-Score**: 93.87%
+- **Test F1-Score**: 93.09%
 
--   **True Positives (TP)**: 20 (Correctly predicted 'Yes recurrence')
+Using cross-validation helped stabilize the model's performance, making it more robust. However, the results still did not significantly differ from the basic Decision Tree model. The model continues to have high precision and recall, but perhaps more complex models could be considered to achieve even better results.
 
-**Model Performance (Test Set):**\
-The following metrics provide a deeper insight into how well the model performs in terms of classification:
+#### 3. Random Forest
 
--   **Accuracy**: 97.37% (The proportion of total correct predictions, with a confidence interval of 90.82% to 99.68%)
+The Random Forest model is a more complex model compared to the basic Decision Tree. It uses an ensemble of trees and aggregates their predictions. As a result, Random Forest often demonstrates better generalization performance.
 
--   **Kappa**: 0.9342 (A measure of agreement between predicted and actual values, adjusted for chance)
+- **Training Accuracy**: 96.97%
+- **Test Accuracy**: 94.55%
+- **Training Precision**: 95.76%
+- **Test Precision**: 94.55%
+- **Training Recall**: 98.14%
+- **Test Recall**: 94.55%
+- **Training F1-Score**: 96.93%
+- **Test F1-Score**: 94.55%
 
--   **Sensitivity**: 98.18% (The ability of the model to correctly identify positive cases)
+The Random Forest model outperforms the Decision Tree models, with a much higher training accuracy of 96.97% and test accuracy of 94.55%. The precision and recall are also significantly better, demonstrating that the model can both accurately classify the data and minimize false positives. Furthermore, the model appears to generalize better, as seen in the similarity between its training and test performance. This suggests that Random Forest is more robust and less prone to overfitting.
 
--   **Specificity**: 95.24% (The ability of the model to correctly identify negative cases)
+#### 4. Random Forest with 10-Fold Cross-Validation
 
--   **Precision**: 98.18% (The proportion of true positive predictions out of all positive predictions)
+Adding 10-fold cross-validation to the Random Forest model further improves the estimation of the model's performance, helping to reduce the risk of overfitting.
 
--   **Recall**: 98.18% (Also known as Sensitivity, the proportion of actual positives correctly identified)
+- **Training Accuracy**: 96.06%
+- **Test Accuracy**: 95.45%
+- **Training Precision**: 92.73%
+- **Test Precision**: 92.73%
+- **Training Recall**: 99.35%
+- **Test Recall**: 98.08%
+- **Training F1-Score**: 95.92%
+- **Test F1-Score**: 95.33%
 
--   **F1 Score**: 0.9818 (A balance between Precision and Recall)
+With 10-fold cross-validation, the Random Forest model showed even more stable results. The model achieved an accuracy of 95.45% on the test set, with high precision and recall scores. This means that the model can generalize well to unseen data while minimizing false positives. The F1-score remained high for both training and test sets, indicating a good balance between precision and recall. The slight increase in test accuracy compared to the basic Random Forest model further confirms that cross-validation helped improve the model's performance.
 
--   **Balanced Accuracy**: 96.71% (The average of Sensitivity and Specificity, useful for imbalanced datasets)
+### Conclusion
 
-This evaluation shows that our Random Forest model performs well with high accuracy and balanced performance across both classes. Since we used one-hot encoding, Random Forest was particularly effective, as tree-based models handle such encoding efficiently.
+- **Decision Tree** models are simple and efficient but can be prone to overfitting, especially without cross-validation. However, they still achieve good performance on smaller datasets.
+- **Random Forest** models perform significantly better in terms of accuracy, precision, and recall, as they use multiple trees to make predictions. This model is more robust and generalizes better to test data.
+- **Cross-validation** improves the performance of both the Decision Tree and Random Forest models by providing a more stable and reliable evaluation, reducing the risk of overfitting.
+
+Based on the evaluation results, the **Random Forest** model with 10-fold cross-validation appears to be the best choice for this task, offering the best balance between accuracy, generalization, and the minimization of overfitting.
+
+
+
+
