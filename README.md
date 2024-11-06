@@ -29,12 +29,6 @@ The dataset consists of patient information and medical records, including clini
 16. **Response**: Response to treatment, categorized as Biochemical Incomplete, Excellent, Indeterminate, or Structural Incomplete.
 17. **Recurred**: The target variable, indicating whether the tumor has recurred (Yes/No).
 
-## Project Structure
-
-- **Data Preprocessing**: Includes data cleaning, one-hot encoding for categorical variables, and splitting the data into training and testing sets.
-- **Feature Selection**: Lasso regression was used for selecting important features from the dataset.
-- **Modeling**: The final model chosen for prediction is **Random Forest**, as it performs well on datasets with one-hot encoded variables due to its tree-based structure.
-  
 ## Steps for Reproducing the Project
 
 1. **Clone the repository**:
@@ -61,8 +55,3 @@ The dataset consists of patient information and medical records, including clini
 
 4. **Evaluation**:
    The model is evaluated on several metrics including accuracy, precision, recall, and F1 score.
-
-## Future Work
-
-- Tune hyperparameters of the Random Forest model to improve accuracy.
-- Explore other machine learning algorithms like Support Vector Machines or Gradient Boosting for better performance.
