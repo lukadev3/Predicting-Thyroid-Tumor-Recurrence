@@ -1381,7 +1381,6 @@ filter(data, data$Stage == "III")
 
 ```{r}
 filter(data, data$Stage == "IVA")
-
 ```
 
 ```{r}
@@ -1753,61 +1752,75 @@ rpart.plot(dt_model$finalModel, main = "Decision Tree Model", type = 3, extra = 
 We have slightly better results on our train data than test data. Let's do cross validation and train our model to be sure it's fitted good.
 
 ```{r}
-train_control <- trainControl(method = "cv", number = 10)  
+k_values <- c(2, 3, 4, 5, 6, 7, 8, 9, 10)
 
-dt_model<- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
-                     data = train_data, 
-                     method = "rpart", 
-                     trControl = train_control)
+results <- list()
 
-predictions <- predict(dt_model, test_data, type = "raw")
+for (k in k_values) {
 
-confusion_matrix <- table(Predicted = predictions, Actual = test_data$Recurred)
-print(confusion_matrix)
+  train_control <- trainControl(method = "cv", number = k)
+  
+  dt_model <- train(
+    Recurred ~ T + Adenopathy + N + Stage + Response, 
+    data = train_data, 
+    method = "rpart", 
+    trControl = train_control
+  )
+  
+  train_pred <- predict(dt_model, train_data, type = "raw")
+  train_conf_matrix <- table(Predicted = train_pred, Actual = train_data$Recurred)
+  
+  train_accuracy <- sum(diag(train_conf_matrix)) / sum(train_conf_matrix)
+  train_precision <- train_conf_matrix[2, 2] / (train_conf_matrix[2, 2] + train_conf_matrix[1, 2])
+  train_recall <- train_conf_matrix[2, 2] / (train_conf_matrix[2, 2] + train_conf_matrix[2, 1])
+  train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
+  
+  test_pred <- predict(dt_model, test_data, type = "raw")
+  test_conf_matrix <- table(Predicted = test_pred, Actual = test_data$Recurred)
+  
+  test_accuracy <- sum(diag(test_conf_matrix)) / sum(test_conf_matrix)
+  test_precision <- test_conf_matrix[2, 2] / (test_conf_matrix[2, 2] + test_conf_matrix[1, 2])
+  test_recall <- test_conf_matrix[2, 2] / (test_conf_matrix[2, 2] + test_conf_matrix[2, 1])
+  test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
+  
+  results[[as.character(k)]] <- list(
+    model = dt_model,
+    train_accuracy = train_accuracy,
+    test_accuracy = test_accuracy,
+    train_precision = train_precision,
+    test_precision = test_precision,
+    train_recall = train_recall,
+    test_recall = test_recall,
+    train_f1 = train_f1,
+    test_f1 = test_f1
+  )
+}
+
+for (k in names(results)) {
+  cat("K:", k, "\n")
+  cat("Training Accuracy:", results[[k]]$train_accuracy, "\n")
+  cat("Test Accuracy:", results[[k]]$test_accuracy, "\n")
+  cat("Training Precision:", results[[k]]$train_precision, "\n")
+  cat("Test Precision:", results[[k]]$test_precision, "\n")
+  cat("Training Recall:", results[[k]]$train_recall, "\n")
+  cat("Test Recall:", results[[k]]$test_recall, "\n")
+  cat("Training F1-Score:", results[[k]]$train_f1, "\n")
+  cat("Test F1-Score:", results[[k]]$test_f1, "\n")
+}
+
 ```
-```{r}
-train_pred <- predict(dt_model, train_data, type = "raw")
-train_confusion_matrix <- table(train_pred, train_data$Recurred)
-
-train_accuracy <- sum(diag(train_confusion_matrix)) / sum(train_confusion_matrix)
-train_precision <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[1, 2])
-train_recall <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[2, 1])
-train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
-
-test_pred <- predict(dt_model, test_data, type = "raw")
-test_confusion_matrix <- table(test_pred, test_data$Recurred)
-
-test_accuracy <- sum(diag(test_confusion_matrix)) / sum(test_confusion_matrix)
-test_precision <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[1, 2])
-test_recall <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[2, 1])
-test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
-
-cat("Training Accuracy:", train_accuracy, "\n")
-cat("Test Accuracy:", test_accuracy, "\n")
-cat("Training Precision:", train_precision, "\n")
-cat("Test Precision:", test_precision, "\n")
-cat("Training Recall:", train_recall, "\n")
-cat("Test Recall:", test_recall, "\n")
-cat("Training F1-Score:", train_f1, "\n")
-cat("Test F1-Score:", test_f1, "\n")
-```
-
-```{r}
-rpart.plot(dt_model$finalModel, main = "Decision Tree Model", type = 3, extra = 102)
-```
-
-We have the same model. Now let's try more complex model, Random Forest Classifier.
+As we can see it's okay to use k in range [3, 10] because our models have same results as our first model. Now let's try more complex model, Random Forest Classifier.
 
 #### Random Forest Classifier
 
 Let's implement Random Forest Classifier and see metrics.
 
 ```{r}
-dt_model <- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
+rf_model <- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
                   data = train_data, 
                   method = "rf")
 
-predictions <- predict(dt_model, test_data, type = "raw")
+predictions <- predict(rf_model, test_data, type = "raw")
 
 confusion_matrix <- table(Predicted = predictions, Actual = test_data$Recurred)
 print(confusion_matrix)
@@ -1815,7 +1828,7 @@ print(confusion_matrix)
 
 
 ```{r}
-train_pred <- predict(dt_model, train_data, type = "raw")
+train_pred <- predict(rf_model, train_data, type = "raw")
 train_confusion_matrix <- table(train_pred, train_data$Recurred)
 
 train_accuracy <- sum(diag(train_confusion_matrix)) / sum(train_confusion_matrix)
@@ -1823,7 +1836,7 @@ train_precision <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] 
 train_recall <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[2, 1])
 train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
 
-test_pred <- predict(dt_model, test_data, type = "raw")
+test_pred <- predict(rf_model, test_data, type = "raw")
 test_confusion_matrix <- table(test_pred, test_data$Recurred)
 
 test_accuracy <- sum(diag(test_confusion_matrix)) / sum(test_confusion_matrix)
@@ -1844,115 +1857,78 @@ cat("Test F1-Score:", test_f1, "\n")
 We got a better score than Decision Tree Classifier. Let's use cross validation and see results:
 
 ```{r}
-train_control <- trainControl(method = "cv", number = 10)  
+k_values <- c(2, 3, 4, 5, 6, 7, 8, 9, 10)
 
-dt_model <- train(Recurred ~ T + Adenopathy + N + Stage + Response, 
-                  data = train_data, 
-                  method = "rf",
-                  trControl = train_control)
+results <- list()
 
-predictions <- predict(dt_model, test_data, type = "raw")
+for (k in k_values) {
 
-confusion_matrix <- table(Predicted = predictions, Actual = test_data$Recurred)
-print(confusion_matrix)
+  train_control <- trainControl(method = "cv", number = k)
+  
+  rf_model <- train(
+    Recurred ~ T + Adenopathy + N + Stage + Response, 
+    data = train_data, 
+    method = "rf", 
+    trControl = train_control
+  )
+  
+  train_pred <- predict(rf_model, train_data, type = "raw")
+  train_conf_matrix <- table(Predicted = train_pred, Actual = train_data$Recurred)
+  
+  train_accuracy <- sum(diag(train_conf_matrix)) / sum(train_conf_matrix)
+  train_precision <- train_conf_matrix[2, 2] / (train_conf_matrix[2, 2] + train_conf_matrix[1, 2])
+  train_recall <- train_conf_matrix[2, 2] / (train_conf_matrix[2, 2] + train_conf_matrix[2, 1])
+  train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
+  
+  test_pred <- predict(rf_model, test_data, type = "raw")
+  test_conf_matrix <- table(Predicted = test_pred, Actual = test_data$Recurred)
+  
+  test_accuracy <- sum(diag(test_conf_matrix)) / sum(test_conf_matrix)
+  test_precision <- test_conf_matrix[2, 2] / (test_conf_matrix[2, 2] + test_conf_matrix[1, 2])
+  test_recall <- test_conf_matrix[2, 2] / (test_conf_matrix[2, 2] + test_conf_matrix[2, 1])
+  test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
+  
+  results[[as.character(k)]] <- list(
+    model = rf_model,
+    train_accuracy = train_accuracy,
+    test_accuracy = test_accuracy,
+    train_precision = train_precision,
+    test_precision = test_precision,
+    train_recall = train_recall,
+    test_recall = test_recall,
+    train_f1 = train_f1,
+    test_f1 = test_f1
+  )
+}
+
+for (k in names(results)) {
+  cat("K:", k, "\n")
+  cat("Training Accuracy:", results[[k]]$train_accuracy, "\n")
+  cat("Test Accuracy:", results[[k]]$test_accuracy, "\n")
+  cat("Training Precision:", results[[k]]$train_precision, "\n")
+  cat("Test Precision:", results[[k]]$test_precision, "\n")
+  cat("Training Recall:", results[[k]]$train_recall, "\n")
+  cat("Test Recall:", results[[k]]$test_recall, "\n")
+  cat("Training F1-Score:", results[[k]]$train_f1, "\n")
+  cat("Test F1-Score:", results[[k]]$test_f1, "\n")
+}
+
 ```
 
-```{r}
-train_pred <- predict(dt_model, train_data, type = "raw")
-train_confusion_matrix <- table(train_pred, train_data$Recurred)
 
-train_accuracy <- sum(diag(train_confusion_matrix)) / sum(train_confusion_matrix)
-train_precision <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[1, 2])
-train_recall <- train_confusion_matrix[2, 2] / (train_confusion_matrix[2, 2] + train_confusion_matrix[2, 1])
-train_f1 <- 2 * (train_precision * train_recall) / (train_precision + train_recall)
-
-test_pred <- predict(dt_model, test_data, type = "raw")
-test_confusion_matrix <- table(test_pred, test_data$Recurred)
-
-test_accuracy <- sum(diag(test_confusion_matrix)) / sum(test_confusion_matrix)
-test_precision <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[1, 2])
-test_recall <- test_confusion_matrix[2, 2] / (test_confusion_matrix[2, 2] + test_confusion_matrix[2, 1])
-test_f1 <- 2 * (test_precision * test_recall) / (test_precision + test_recall)
-
-cat("Training Accuracy:", train_accuracy, "\n")
-cat("Test Accuracy:", test_accuracy, "\n")
-cat("Training Precision:", train_precision, "\n")
-cat("Test Precision:", test_precision, "\n")
-cat("Training Recall:", train_recall, "\n")
-cat("Test Recall:", test_recall, "\n")
-cat("Training F1-Score:", train_f1, "\n")
-cat("Test F1-Score:", test_f1, "\n")
-```
-We got a better test score, but slightly worse train score. So, let's do recap and evaluate our models.
+We got a small deviations in our results, in summary our Random Forest algorithm gave us better results.
 
 ### Model Evaluation
 
-#### 1. Basic Decision Tree
+#### Decision Tree
+- Without Cross-Validation: High training accuracy (93.94%) and test accuracy (93.18%) with balanced precision, recall, and F1-scores, indicating a strong fit to the data.
+- With Cross-Validation: Performance slightly reduced for K=2 (test accuracy: 89.55%, F1-score: 88.44%), but stabilized for K ≥ 3 with metrics matching the no-validation results, showing consistency across folds.
 
-The basic Decision Tree model was trained without cross-validation, using the training data. This model achieved decent results, but there are some limitations in accuracy on the test set.
+#### Random Forest
+- Without Cross-Validation: Excellent performance with high training (96.06%) and test accuracy (95.00%), strong recall (training: 99.35%, test: 97.14%), and F1-scores.
+- With Cross-Validation: Consistent performance across all K values, with slightly lower metrics for smaller K but maintaining strong test F1-scores (~95%) and stability across K ≥ 6.
 
-- **Training Accuracy**: 93.94%
-- **Test Accuracy**: 93.18%
-- **Training Precision**: 92.73%
-- **Test Precision**: 91.82%
-- **Training Recall**: 95.03%
-- **Test Recall**: 94.39%
-
-The model achieved a high accuracy of 93.94% on the training set and 93.18% on the test set, which shows that it performs well. Precision and recall are also good, indicating that the model is able to make accurate predictions without many false positives or false negatives. However, there is a slight difference in performance between the training and test sets, which may suggest mild overfitting. Overfitting occurs when the model becomes too complex and performs well on training data but fails to generalize to unseen data.
-
-#### 2. Decision Tree with 10-Fold Cross-Validation
-
-The 10-fold cross-validation approach provides a more reliable estimate of model performance by reducing the possibility of overfitting. This model performed similarly to the basic Decision Tree, but with small improvements in F1-Score.
-
-- **Training Accuracy**: 93.94%
-- **Test Accuracy**: 93.18%
-- **Training Precision**: 92.73%
-- **Test Precision**: 91.82%
-- **Training Recall**: 95.03%
-- **Test Recall**: 94.39%
-- **Training F1-Score**: 93.87%
-- **Test F1-Score**: 93.09%
-
-Using cross-validation helped stabilize the model's performance, making it more robust. However, the results still did not significantly differ from the basic Decision Tree model. The model continues to have high precision and recall, but perhaps more complex models could be considered to achieve even better results.
-
-#### 3. Random Forest
-
-The Random Forest model is a more complex model compared to the basic Decision Tree. It uses an ensemble of trees and aggregates their predictions. As a result, Random Forest often demonstrates better generalization performance.
-
-- **Training Accuracy**: 96.97%
-- **Test Accuracy**: 94.55%
-- **Training Precision**: 95.76%
-- **Test Precision**: 94.55%
-- **Training Recall**: 98.14%
-- **Test Recall**: 94.55%
-- **Training F1-Score**: 96.93%
-- **Test F1-Score**: 94.55%
-
-The Random Forest model outperforms the Decision Tree models, with a much higher training accuracy of 96.97% and test accuracy of 94.55%. The precision and recall are also significantly better, demonstrating that the model can both accurately classify the data and minimize false positives. Furthermore, the model appears to generalize better, as seen in the similarity between its training and test performance. This suggests that Random Forest is more robust and less prone to overfitting.
-
-#### 4. Random Forest with 10-Fold Cross-Validation
-
-Adding 10-fold cross-validation to the Random Forest model further improves the estimation of the model's performance, helping to reduce the risk of overfitting.
-
-- **Training Accuracy**: 96.06%
-- **Test Accuracy**: 95.45%
-- **Training Precision**: 92.73%
-- **Test Precision**: 92.73%
-- **Training Recall**: 99.35%
-- **Test Recall**: 98.08%
-- **Training F1-Score**: 95.92%
-- **Test F1-Score**: 95.33%
-
-With 10-fold cross-validation, the Random Forest model showed even more stable results. The model achieved an accuracy of 95.45% on the test set, with high precision and recall scores. This means that the model can generalize well to unseen data while minimizing false positives. The F1-score remained high for both training and test sets, indicating a good balance between precision and recall. The slight increase in test accuracy compared to the basic Random Forest model further confirms that cross-validation helped improve the model's performance.
-
-### Conclusion
-
-- **Decision Tree** models are simple and efficient but can be prone to overfitting, especially without cross-validation. However, they still achieve good performance on smaller datasets.
-- **Random Forest** models perform significantly better in terms of accuracy, precision, and recall, as they use multiple trees to make predictions. This model is more robust and generalizes better to test data.
-- **Cross-validation** improves the performance of both the Decision Tree and Random Forest models by providing a more stable and reliable evaluation, reducing the risk of overfitting.
-
-Based on the evaluation results, the **Random Forest** model with 10-fold cross-validation appears to be the best choice for this task, offering the best balance between accuracy, generalization, and the minimization of overfitting.
-
-
-
+#### Key Observations:
+- **Decision Tree** benefits from cross-validation for smaller datasets to avoid overfitting.
+- **Random Forest** performs robustly, both with and without cross-validation, making it a better choice for generalization.
 
